@@ -11,6 +11,7 @@ use DanielPetrica\AuthMd\Events\AgentTokenRevoked;
 use DanielPetrica\AuthMd\Models\AgentAccessToken;
 use DanielPetrica\AuthMd\Models\AgentRegistration;
 use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Support\Facades\Cache;
 
 final class TokenService
 {
@@ -54,6 +55,20 @@ final class TokenService
         if (! $registration || $registration->isExpired()) {
             throw new HttpResponseException(
                 response()->json(['error' => 'invalid_grant', 'error_description' => 'Invalid or expired assertion.'], 400)
+            );
+        }
+
+        // Assertions are bearer credentials: burn them on first use so a leaked
+        // or replayed assertion cannot mint additional access tokens.
+        $assertionKey = 'agent-auth:assertion:'.hash('sha256', $assertion);
+
+        if (! Cache::store(config('agent-auth.cache_store') ?: null)->add(
+            key: $assertionKey,
+            value: true,
+            ttl: now()->addHours((int) config('agent-auth.registration.ttl_hours', 24)),
+        )) {
+            throw new HttpResponseException(
+                response()->json(['error' => 'invalid_grant', 'error_description' => 'Assertion has already been used.'], 400)
             );
         }
 

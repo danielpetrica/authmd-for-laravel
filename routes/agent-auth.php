@@ -10,5 +10,8 @@ Route::post('/agent/identity', [AgentIdentityController::class, 'store'])
 Route::post('/agent/identity/claim', [AgentIdentityController::class, 'claim'])
     ->middleware(['throttle:agent-auth']);
 
-Route::post('/oauth2/token', [TokenController::class, 'token']);
-Route::post('/oauth2/revoke', [TokenController::class, 'revoke']);
+Route::post('/oauth2/token', [TokenController::class, 'token'])
+    ->middleware(['throttle:agent-auth-token']);
+
+Route::post('/oauth2/revoke', [TokenController::class, 'revoke'])
+    ->middleware(['throttle:agent-auth-token']);

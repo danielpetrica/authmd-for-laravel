@@ -91,5 +91,11 @@ final class AuthMdServiceProvider extends ServiceProvider
                 60
             )->by($request->ip());
         });
+
+        $this->app[RateLimiter::class]->for('agent-auth-token', function (Request $request): Limit {
+            return Limit::perMinute(
+                (int) config('agent-auth.rate_limits.token_per_ip', 60)
+            )->by($request->ip());
+        });
     }
 }

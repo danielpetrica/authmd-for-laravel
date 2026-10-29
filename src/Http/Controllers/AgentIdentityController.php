@@ -26,17 +26,22 @@ final class AgentIdentityController extends Controller
             'login_hint' => 'required_if:type,service_auth|nullable|email',
         ]);
 
+        $claimToken = 'clm_'.Str::random(25);
+
         $registration = match ($validated['type']) {
-            'anonymous' => $this->registrations->createAnonymous(ip: $request->ip()),
+            'anonymous' => $this->registrations->createAnonymous(
+                ip: (string) $request->ip(),
+                claimToken: $claimToken,
+            ),
             'service_auth' => $this->registrations->createServiceAuth(
-                email: $validated['login_hint'],
-                ip: $request->ip(),
+                email: (string) $validated['login_hint'],
+                ip: (string) $request->ip(),
+                claimToken: $claimToken,
             ),
             default => abort(422, json_encode(['error' => 'invalid_type'])),
         };
 
         $assertion = $this->jwt->sign(['sub' => $registration->registration_id]);
-        $claimToken = 'clm_'.Str::random(25);
 
         $response = [
             'registration_id' => $registration->registration_id,
@@ -77,9 +82,9 @@ final class AgentIdentityController extends Controller
             return response()->json(['error' => 'claim_expired'], 400);
         }
 
-        $cacheStore = (string) config('agent-auth.cache_store', cache()->getDefaultDriver());
+        $cache = Cache::store(config('agent-auth.cache_store') ?: null);
         $attemptKey = "agent_auth:claim_attempts:{$registration->id}";
-        $attempts = (int) Cache::store($cacheStore)->get($attemptKey, 0);
+        $attempts = (int) $cache->get($attemptKey, 0);
 
         if ($attempts >= (int) config('agent-auth.claim.max_attempts', 5)) {
             return response()->json(['error' => 'too_many_attempts'], 429);
@@ -96,11 +101,11 @@ final class AgentIdentityController extends Controller
             'claim_attempts' => $attempts + 1,
         ]);
 
-        Cache::store($cacheStore)->put($attemptKey, $attempts + 1, now()->addMinutes(15));
+        $cache->put($attemptKey, $attempts + 1, now()->addMinutes(15));
 
         return response()->json([
             'registration_id' => $registration->registration_id,
-            'claim_attempt_id' => 'cla_'.Str::random(16),
+            'claim_attempt_id' => $claimAttemptToken,
             'status' => 'initiated',
             'expires_at' => $registration->claim_code_expires_at->toIso8601String(),
             'claim_attempt' => [

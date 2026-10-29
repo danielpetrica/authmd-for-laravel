@@ -47,9 +47,9 @@ final class TokenController extends Controller
             'claim_token' => 'required|string',
         ]);
 
-        $cacheStore = (string) config('agent-auth.cache_store', cache()->getDefaultDriver());
+        $cache = Cache::store(config('agent-auth.cache_store') ?: null);
         $pollKey = 'agent_auth:poll:'.hash('sha256', $validated['claim_token']);
-        $lastPoll = Cache::store($cacheStore)->get($pollKey);
+        $lastPoll = $cache->get($pollKey);
 
         if ($lastPoll instanceof \DateTimeInterface) {
             $elapsed = now()->diffInSeconds($lastPoll);
@@ -63,7 +63,7 @@ final class TokenController extends Controller
             }
         }
 
-        Cache::store($cacheStore)->put($pollKey, now(), now()->addMinutes(15));
+        $cache->put($pollKey, now(), now()->addMinutes(15));
 
         $result = $this->tokens->handleClaimGrant($validated['claim_token']);
 

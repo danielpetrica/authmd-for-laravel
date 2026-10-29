@@ -9,14 +9,11 @@ use DanielPetrica\AuthMd\Enums\IdentityType;
 use DanielPetrica\AuthMd\Events\AgentClaimed;
 use DanielPetrica\AuthMd\Events\AgentRegistered;
 use DanielPetrica\AuthMd\Models\AgentRegistration;
-use Illuminate\Support\Str;
 
 final class RegistrationService
 {
-    public function createAnonymous(string $ip, ?array $metadata = null): AgentRegistration
+    public function createAnonymous(string $ip, string $claimToken, ?array $metadata = null): AgentRegistration
     {
-        $claimToken = 'clm_'.Str::random(25);
-
         $registration = AgentRegistration::create([
             'registration_id' => AgentRegistration::generateRegistrationId(),
             'type' => IdentityType::Anonymous->value,
@@ -32,10 +29,8 @@ final class RegistrationService
         return $registration;
     }
 
-    public function createServiceAuth(string $email, string $ip, ?array $metadata = null): AgentRegistration
+    public function createServiceAuth(string $email, string $ip, string $claimToken, ?array $metadata = null): AgentRegistration
     {
-        $claimToken = 'clm_'.Str::random(25);
-
         $registration = AgentRegistration::create([
             'registration_id' => AgentRegistration::generateRegistrationId(),
             'type' => IdentityType::ServiceAuth->value,
